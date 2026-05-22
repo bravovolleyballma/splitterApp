@@ -9,7 +9,7 @@
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2, h3 { margin-top: 0; color: #2c3e50; }
         .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
-        .tab-btn { flex: 1; padding: 10px; background: none; border: none; font-size: 16px; font-weight: bold; cursor: pointer; color: #7f8c8d; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab-btn { flex: 1; padding: 10px; background: none; border: none; font-size: 14px; font-weight: bold; cursor: pointer; color: #7f8c8d; border-bottom: 2px solid transparent; margin-bottom: -2px; }
         .tab-btn.active { color: #3498db; border-bottom: 2px solid #3498db; }
         .panel { display: none; }
         .panel.active { display: block; }
@@ -34,31 +34,24 @@
 
 <div class="container">
     <h2>💸 Splitwise Lite</h2>
-    
-    <!-- Balance Dashboard -->
-    <div style="margin-bottom:20px;">
-        <h3>📊 Current Status</h3>
-        <div id="balancesBox">Loading balances...</div>
-    </div>
 
     <!-- Navigation Tabs -->
     <div class="tabs">
-        <button class="tab-btn active" id="tabExp" onclick="switchTab('expensePanel', 'tabExp')">➕ Add Expense</button>
-        <button class="tab-btn" id="tabUser" onclick="switchTab('userPanel', 'tabUser')">👤 Create User</button>
+        <button class="tab-btn active" id="tabExp" onclick="switchTab('expensePanel', 'tabExp')">➕ Expense</button>
+        <button class="tab-btn" id="tabStatus" onclick="switchTab('statusPanel', 'tabStatus')">📊 Balances</button>
+        <button class="tab-btn" id="tabUser" onclick="switchTab('userPanel', 'tabUser')">👤 User</button>
     </div>
 
     <!-- PANEL 1: EXPENSE FORM -->
     <div id="expensePanel" class="panel active">
         <form id="expenseForm">
             <div class="form-group">
-                <label for="payerSearch">Search & Select Payer</label>
-                <input type="text" id="payerSearch" class="search-box" placeholder="Type name to filter list..." onkeyup="filterDropdown()">
-                <select id="payer" required>
-                    <option value="">Loading users...</option>
-                </select>
+                <label for="payer">Who Paid?</label>
+                <input type="text" id="payer" list="userDatalist" placeholder="Type or click to select a user..." required>
+                <datalist id="userDatalist"></datalist>
             </div>
             <div class="form-group">
-                <label for="amount">Amount (\$)</label>
+                <label for="amount">Amount ($)</label>
                 <input type="number" id="amount" step="0.01" placeholder="0.00" required>
             </div>
             <div class="form-group">
@@ -76,7 +69,13 @@
         </form>
     </div>
 
-    <!-- PANEL 2: USER CREATION FORM -->
+    <!-- PANEL 2: CURRENT STATUS DASHBOARD -->
+    <div id="statusPanel" class="panel">
+        <h3>📊 Current Status</h3>
+        <div id="balancesBox">Loading balances...</div>
+    </div>
+
+    <!-- PANEL 3: USER CREATION FORM -->
     <div id="userPanel" class="panel">
         <form id="userForm">
             <div class="form-group">
@@ -95,126 +94,132 @@
         </form>
     </div>
 
-    <!-- History Log -->
+    <!-- History Log (Always visible at the bottom) -->
     <div class="section-block">
         <h3>📅 Recent Expenses</h3>
         <div id="expensesLog">Loading history...</div>
     </div>
 </div>
-
 <script>
-    // ⚠️ REPLACE WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
     const API_URL = "https://script.google.com/macros/s/AKfycbwdrjNcPErvDtCk0KXBs4CM75vvWsqM0TJGGodVTmrqihNFVS0isglPw1X5qdefbhjQ-w/exec";
-
     let masterUserList = [];
 
-    // Tab switcher logic
-    function switchTab(panelId, btnId) {
+    function switchTab(pId, bId) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        
-        document.getElementById(panelId).classList.add('active');
-        document.getElementById(btnId).classList.add('active');
+        document.getElementById(pId).classList.add('active');
+        document.getElementById(bId).classList.add('active');
     }
 
-    // Filter dropdown items
-    function filterDropdown() {
-        const filter = document.getElementById('payerSearch').value.toLowerCase();
-        const select = document.getElementById('payer');
-        select.innerHTML = '<option value="">-- Choose Payer --</option>';
-        masterUserList.forEach(user => {
-            if (user.toLowerCase().includes(filter)) {
-                const opt = document.createElement('option');
-                opt.value = user;
-                opt.textContent = user;
-                select.appendChild(opt);
-            }
-        });
-    }
-
-    // Filter checkbox items
     function filterCheckboxes() {
-        const filter = document.getElementById('splitSearch').value.toLowerCase();
-        const items = document.querySelectorAll('.checkbox-item');
-        items.forEach(item => {
-            if (item.textContent.toLowerCase().includes(filter)) {
-                item.classList.remove('hidden');
+        const val = document.getElementById('splitSearch').value.toLowerCase();
+        document.querySelectorAll('.checkbox-item').forEach(i => {
+            if (i.textContent.toLowerCase().includes(val)) {
+                i.classList.remove('hidden');
             } else {
-                item.classList.add('hidden');
+                i.classList.add('hidden');
             }
         });
     }
 
-    // Core initial data pull
     function loadInitialData() {
         fetch(API_URL)
-        .then(res => res.json())
-        .then(data => {
-            masterUserList = data.users || [];
+        .then(r => r.json())
+        .then(d => {
+            masterUserList = d.users || [];
             buildUserInterfaces(masterUserList);
-            displayBalances(data.balances);
-            displayHistory(data.transactions);
+            displayBalances(d.balances);
+            displayHistory(d.transactions);
         })
-        .catch(err => {
-            console.error(err);
-            document.getElementById('balancesBox').innerHTML = 'Sync engine unreachable.';
+        .catch(e => {
+            document.getElementById('balancesBox').innerHTML = 'Sync unreachable.';
         });
     }
 
-    function buildUserInterfaces(users) {
-        const payerSelect = document.getElementById('payer');
-        const splitContainer = document.getElementById('splitWithContainer');
-        
-        payerSelect.innerHTML = '<option value="">-- Choose Payer --</option>';
-        splitContainer.innerHTML = '';
+    function buildUserInterfaces(arr) {
+        const datalist = document.getElementById('userDatalist');
+        const box = document.getElementById('splitWithContainer');
+        datalist.innerHTML = '';
+        box.innerHTML = '';
+        arr.forEach(u => {
+            const o = document.createElement('option');
+            o.value = u;
+            datalist.appendChild(o);
 
-        users.forEach(user => {
-            const opt = document.createElement('option');
-            opt.value = user; 
-            opt.textContent = user;
-            payerSelect.appendChild(opt);
-
-            const label = document.createElement('label');
-            label.className = 'checkbox-item';
-            label.innerHTML = '<input type="checkbox" name="splitUsers" value="' + user + '"> ' + user;
-            splitContainer.appendChild(label);
+            const l = document.createElement('label');
+            l.className = 'checkbox-item';
+            l.innerHTML = '<input type="checkbox" name="splitUsers" value="' + u + '"> ' + u;
+            box.appendChild(l);
         });
     }
 
-    // Submit user form
     document.getElementById('userForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const payload = {
+        const p = {
             action: "createUser",
             name: document.getElementById('newUserName').value.trim(),
             email: document.getElementById('newUserEmail').value.trim(),
             phone: document.getElementById('newUserPhone').value.trim()
         };
-
-        fetch(API_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify(payload) })
-        .then(res => res.json())
-        .then(data => {
-            if(data.status === 'success') {
-                alert('User added successfully!');
-                document.getElementById('userForm').reset();
-                switchTab('expensePanel', 'tabExp');
-                loadInitialData();
-            } else { 
-                alert('Error: ' + data.message); 
-            }
+        fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(p) })
+        .then(() => {
+            alert('User request sent!');
+            document.getElementById('userForm').reset();
+            switchTab('expensePanel', 'tabExp');
+            setTimeout(loadInitialData, 2000);
         });
     });
 
-    // Submit expense form
     document.getElementById('expenseForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const checkedBoxes = document.querySelectorAll('input[name="splitUsers"]:checked');
-        const selectedUsers = Array.from(checkedBoxes).map(cb => cb.value);
-
-        if (selectedUsers.length === 0) { 
-            alert('Select at least one person to split with.'); 
-            return; 
+        const checked = document.querySelectorAll('input[name="splitUsers"]:checked');
+        const users = Array.from(checked).map(c => c.value);
+        const chosenPayer = document.getElementById('payer').value.trim();
+        
+        if (!masterUserList.includes(chosenPayer)) {
+            alert('Please select a valid user from the database prompts!');
+            return;
         }
+        if (users.length === 0) { alert('Select split users.'); return; }
+        
+        const p = {
+            action: "createTransaction",
+            payer: chosenPayer,
+            amount: document.getElementById('amount').value,
+            description: document.getElementById('description').value.trim(),
+            splitWith: users.join(', ')
+        };
+        fetch(API_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(p) })
+        .then(() => {
+            alert('Expense submission sent!');
+            document.getElementById('expenseForm').reset();
+            setTimeout(loadInitialData, 2000);
+        });
+    });
 
-const payload = {action: "createTransaction",payer: document.getElementById('payer').value,amount: document.getElementById('amount').value,description: document.getElementById('description').value.trim(),splitWith: selectedUsers.join(', ')};fetch(API_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify(payload) }).then(res => res.json()).then(data => {if(data.status === 'success') {alert('Expense synchronized!');document.getElementById('expenseForm').reset();loadInitialData();}});});function displayBalances(balances) {const box = document.getElementById('balancesBox');box.innerHTML = '';if(!balances || balances.length === 0) {box.innerHTML = 'No data.';return;}balances.forEach(user => {const div = document.createElement('div');const amt = parseFloat(user.net || 0);div.className = 'balance-item ' + (amt >= 0 ? 'pos' : 'neg');div.innerHTML = '' + user.name + ' ' + (amt >= 0 ? 'Gets back' : 'Owes') + ': $' + Math.abs(amt).toFixed(2) + '';box.appendChild(div);});}function displayHistory(transactions) {const log = document.getElementById('expensesLog');log.innerHTML = '';if(!transactions || transactions.length === 0) {log.innerHTML = 'No entries.';return;}transactions.slice(-5).reverse().forEach(item => {const div = document.createElement('div');div.className = 'history-item';div.innerHTML = '' + item.Payer + ' paid $' + parseFloat(item.Amount).toFixed(2) + ' for ' + item.Description + 'Split with: ' + item.SplitWith + '';log.appendChild(div);});}loadInitialData();
+    function displayBalances(arr) {
+        const b = document.getElementById('balancesBox'); b.innerHTML = '';
+        if(!arr || arr.length === 0) { b.innerHTML = 'No data.'; return; }
+        arr.forEach(u => {
+            const div = document.createElement('div');
+            const num = parseFloat(u.net || 0);
+            div.className = 'balance-item ' + (num >= 0 ? 'pos' : 'neg');
+            div.innerHTML = '<span>' + u.name + '</span> <span>' + (num >= 0 ? 'Gets back' : 'Owes') + ': $' + Math.abs(num).toFixed(2) + '</span>';
+            b.appendChild(div);
+        });
+    }
 
+    function displayHistory(arr) {
+        const l = document.getElementById('expensesLog'); l.innerHTML = '';
+        if(!arr || arr.length === 0) { l.innerHTML = 'No items.'; return; }
+        arr.slice(-5).reverse().forEach(i => {
+            const div = document.createElement('div'); div.className = 'history-item';
+            div.innerHTML = '<strong>' + i.Payer + '</strong> paid <strong>$' + parseFloat(i.Amount).toFixed(2) + '</strong> for <em>' + i.Description + '</em><br><small>Split: ' + i.SplitWith + '</small>';
+            l.appendChild(div);
+        });
+    }
+
+    loadInitialData();
+</script>
+</body>
+</html>
