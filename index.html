@@ -3,180 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Private Bill Splitter</title>
+    <title>Group Expense Splitter</title>
     <style>
-        body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 20px auto; padding: 0 15px; color: #333; line-height: 1.4; }
-        h1, h2 { border-bottom: 2px solid #eee; padding-bottom: 5px; }
-        section { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }
-        input, select, button { padding: 8px; font-size: 14px; margin: 5px 0; box-sizing: border-box; }
-        input[type="text"], input[type="number"], select { width: 100%; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #0070f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
-        button:hover { background: #0051a8; }
-        button.danger { background: #d32f2f; margin-top: 15px; }
-        button.danger:hover { background: #9a0007; }
-        textarea { width: 100%; height: 60px; font-family: monospace; font-size: 12px; box-sizing: border-box; resize: none; margin: 5px 0; }
-        ul { list-style: none; padding: 0; }
-        li { padding: 6px 0; border-bottom: 1px solid #eee; }
-        .flex { display: flex; gap: 10px; }
-        .checkbox-group { max-height: 100px; overflow-y: auto; background: white; border: 1px solid #ccc; padding: 8px; border-radius: 4px; }
-        .checkbox-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-        .checkbox-item input { width: auto; margin: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2, h3 { margin-top: 0; color: #2c3e50; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; background-color: #2ecc71; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:hover { background-color: #27ae60; }
+        .loading { display: none; text-align: center; color: #7f8c8d; font-style: italic; margin-top: 10px; }
+        .history-list { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+        .history-item { background: #f9f9f9; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #3498db; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <h1>🔒 Private Bill Splitter</h1>
-
-    <!-- 1. ADD PEOPLE -->
-    <section>
-        <h2>1. Add People</h2>
-        <div class="flex">
-            <input type="text" id="personName" placeholder="Enter name...">
-            <button onclick="addPerson()" style="width: auto; white-space: nowrap;">Add Person</button>
+<div class="container">
+    <h2>💸 Splitwise Lite</h2>
+    
+    <!-- Expense Form -->
+    <form id="expenseForm">
+        <div class="form-group">
+            <label for="payer">Who Paid?</label>
+            <input type="text" id="payer" placeholder="e.g. Alice" required>
         </div>
-        <ul id="peopleList"></ul>
-    </section>
+        <div class="form-group">
+            <label for="amount">Amount ($)</label>
+            <input type="number" id="amount" step="0.01" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+            <label for="description">For What?</label>
+            <input type="text" id="description" placeholder="e.g. Dinner, Groceries" required>
+        </div>
+        <div class="form-group">
+            <label for="splitWith">Split With (Comma separated)</label>
+            <input type="text" id="splitWith" placeholder="e.g. Bob, Charlie" required>
+        </div>
+        <button type="submit">Sync Transaction</button>
+        <div id="loadingStatus" class="loading">Processing... Please wait.</div>
+    </form>
 
-    <!-- 2. ADD EXPENSE -->
-    <section>
-        <h2>2. Add New Expense</h2>
-        <label>Description</label>
-        <input type="text" id="expDesc" placeholder="e.g., Grocery running">
-        
-        <label>Total Amount ($)</label>
-        <input type="number" id="expAmount" step="0.01" placeholder="0.00">
-        
-        <label>Who Paid?</label>
-        <select id="expPayer"></select>
-        
-        <label>Split Between Whom?</label>
-        <div class="checkbox-group" id="expSplits"></div>
-        
-        <button onclick="addExpense()" style="margin-top:10px;">Save Expense</button>
-    </section>
+    <!-- Simple History Viewer -->
+    <div class="history-list">
+        <h3>Recent Expenses</h3>
+        <div id="expensesLog">Loading history...</div>
+    </div>
+</div>
 
-    <!-- 3. RESULTS & SETTLEMENT -->
-    <section>
-        <h2>3. Balances & Settlement</h2>
-        <div id="balancesOutput"></div>
-        <h3>Simplest Way to Settle:</h3>
-        <div id="settlementOutput"></div>
-    </section>
+<script>
+    // ⚠️ REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
+    const API_URL = "https://script.google.com/macros/s/AKfycbwdrjNcPErvDtCk0KXBs4CM75vvWsqM0TJGGodVTmrqihNFVS0isglPw1X5qdefbhjQ-w/exec";
 
-    <!-- 4. GIT SYNC LOGIC -->
-    <section>
-        <h2>4. Private Git Sync Data</h2>
-        <p style="font-size: 12px; margin: 0 0 10px 0; color: #666;">Copy this text to save on GitHub, or paste text from GitHub to update your ledger.</p>
-        <textarea id="syncBox" readonly onclick="this.select()"></textarea>
-        <button onclick="importTextData()" style="background:#555;">📥 Import Pasted Text Above</button>
-    </section>
+    const form = document.getElementById('expenseForm');
+    const loadingStatus = document.getElementById('loadingStatus');
+    const expensesLog = document.getElementById('expensesLog');
 
-    <button class="danger" onclick="resetData()">Wipe All Local App Data</button>
+    // Handle Form Submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        loadingStatus.style.display = 'block';
 
-    <script>
-        let appData = JSON.parse(localStorage.getItem('privateSplitterData')) || { users: [], expenses: [] };
+        const payload = {
+            payer: document.getElementById('payer').value.trim(),
+            amount: document.getElementById('amount').value.trim(),
+            description: document.getElementById('description').value.trim(),
+            splitWith: document.getElementById('splitWith').value.trim()
+        };
 
-        function saveData() {
-            localStorage.setItem('privateSplitterData', JSON.stringify(appData));
-            renderAll();
-        }
-
-        function addPerson() {
-            const input = document.getElementById('personName');
-            const name = input.value.trim();
-            if (name && !appData.users.includes(name)) {
-                appData.users.push(name);
-                input.value = '';
-                saveData();
+        fetch(API_URL, {
+            method: 'POST',
+            redirect: 'follow', // Crucial to handle Google Apps Script redirects
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            loadingStatus.style.display = 'none';
+            if(data.status === 'success') {
+                alert('Expense successfully synced!');
+                form.reset();
+                fetchHistory(); // Refresh the visual history log
+            } else {
+                alert('Error: ' + data.message);
             }
-        }
+        })
+        .catch(err => {
+            loadingStatus.style.display = 'none';
+            console.error(err);
+            alert('Sync failed. Check console or Web App URL config.');
+        });
+    });
 
-        function addExpense() {
-            const desc = document.getElementById('expDesc').value.trim();
-            const amount = parseFloat(document.getElementById('expAmount').value);
-            const payer = document.getElementById('expPayer').value;
-            const checkboxes = document.querySelectorAll('#expSplits input[type="checkbox"]:checked');
-            const splits = Array.from(checkboxes).map(cb => cb.value);
-
-            if (!desc || isNaN(amount) || amount <= 0 || !payer || splits.length === 0) {
-                alert('Please fill out all fields.');
+    // Fetch and show recent transactions from the Google Sheet
+    function fetchHistory() {
+        fetch(API_URL)
+        .then(res => res.json())
+        .then(data => {
+            expensesLog.innerHTML = '';
+            if (data.length === 0) {
+                expensesLog.innerHTML = 'No transactions recorded yet.';
                 return;
             }
-
-            appData.expenses.push({ desc, amount, paid_by: payer, splits });
-            document.getElementById('expDesc').value = '';
-            document.getElementById('expAmount').value = '';
-            saveData();
-        }
-
-        function calculateBalances() {
-            let balances = {};
-            appData.users.forEach(u => balances[u] = 0);
-            appData.expenses.forEach(exp => {
-                const share = exp.amount / exp.splits.length;
-                balances[exp.paid_by] += exp.amount;
-                exp.splits.forEach(u => { if (balances[u] !== undefined) balances[u] -= share; });
+            // Display transactions (showing the last 5 items)
+            const recent = data.slice(-5).reverse();
+            recent.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<strong>${item.Payer}</strong> paid <strong>$${parseFloat(item.Amount).toFixed(2)}</strong> for <em>${item.Description}</em><br><small>Split with: ${item.SplitWith}</small>`;
+                expensesLog.appendChild(div);
             });
-            return balances;
-        }
+        })
+        .catch(err => {
+            expensesLog.innerHTML = 'Could not load expense history.';
+            console.error(err);
+        });
+    }
 
-        function calculateSettlement(balances) {
-            let debtors = [], creditors = [], steps = [];
-            for (let user in balances) {
-                if (balances[user] < -0.01) debtors.push({ name: user, amount: Math.abs(balances[user]) });
-                else if (balances[user] > 0.01) creditors.push({ name: user, amount: balances[user] });
-            }
-            while (debtors.length > 0 && creditors.length > 0) {
-                debtors.sort((a, b) => b.amount - a.amount);
-                creditors.sort((a, b) => b.amount - a.amount);
-                let settled = Math.min(debtors[0].amount, creditors[0].amount);
-                steps.push(`💸 <b>${debtors[0].name}</b> pays <b>${creditors[0].name}</b>: $${settled.toFixed(2)}`);
-                debtors[0].amount -= settled; creditors[0].amount -= settled;
-                if (debtors[0].amount < 0.01) debtors.shift();
-                if (creditors[0].amount < 0.01) creditors.shift();
-            }
-            return steps;
-        }
+    // Load transaction log immediately on page load
+    fetchHistory();
+</script>
 
-        function importTextData() {
-            const box = document.getElementById('syncBox');
-            try {
-                const parsed = JSON.parse(box.value);
-                if (parsed.users && parsed.expenses) {
-                    appData = parsed;
-                    saveData();
-                    alert("Data imported successfully!");
-                } else { alert("Invalid format."); }
-            } catch(e) { alert("Please paste a valid data code string."); }
-        }
-
-        function renderAll() {
-            document.getElementById('peopleList').innerHTML = appData.users.map(u => `<li>👤 ${u}</li>`).join('');
-            document.getElementById('expPayer').innerHTML = appData.users.map(u => `<option value="${u}">${u}</option>`).join('');
-            document.getElementById('expSplits').innerHTML = appData.users.map(u => `
-                <div class="checkbox-item"><input type="checkbox" value="${u}" id="cb_${u}" checked><label for="cb_${u}">${u}</label></div>
-            `).join('');
-
-            const balances = calculateBalances();
-            let balHtml = '<ul>';
-            for (let user in balances) {
-                const b = balances[user];
-                balHtml += `<li><b>${user}:</b> <span style="color:${b >= 0 ? 'green' : 'red'};">${b >= 0 ? '+' : '-'}$${Math.abs(b).toFixed(2)}</span></li>`;
-            }
-            document.getElementById('balancesOutput').innerHTML = appData.users.length ? balHtml + '</ul>' : '<p>No data yet.</p>';
-            
-            const txs = calculateSettlement(balances);
-            document.getElementById('settlementOutput').innerHTML = txs.length ? txs.map(t => `<p>${t}</p>`).join('') : '<p>Everyone is even!</p>';
-            
-            // Generate the string text for Git sharing
-            const box = document.getElementById('syncBox');
-            if (document.activeElement !== box) {
-                box.value = JSON.stringify(appData);
-            }
-        }
-
-        function resetData() { if (confirm('Clear everything?')) { appData = { users: [], expenses: [] }; saveData(); } }
-        renderAll();
-    </script>
 </body>
 </html>
